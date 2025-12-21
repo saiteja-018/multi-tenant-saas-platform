@@ -1,0 +1,269 @@
+# System Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          CLIENT LAYER                            │
+│                     (Web Browser / Mobile)                       │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP/HTTPS
+                             │ Port 3000
+┌────────────────────────────▼────────────────────────────────────┐
+│                      FRONTEND SERVICE                            │
+│                    (React 18 + Docker)                           │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ • Glassmorphism UI Design                                │  │
+│  │ • Protected Routes (PrivateRoute)                        │  │
+│  │ • Context API (AuthContext)                              │  │
+│  │ • Role-Based UI Rendering                                │  │
+│  │ • Responsive Layout (Mobile + Desktop)                   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ REST API
+                             │ JWT Token in Headers
+                             │ Port 5000
+┌────────────────────────────▼────────────────────────────────────┐
+│                      BACKEND SERVICE                             │
+│                  (Node.js 20 + Express + Docker)                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  MIDDLEWARE LAYER                        │  │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────────┐    │  │
+│  │  │   CORS     │  │    Auth    │  │  Authorize     │    │  │
+│  │  │  Handler   │  │   (JWT)    │  │    (RBAC)      │    │  │
+│  │  └────────────┘  └────────────┘  └────────────────┘    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    ROUTES LAYER                          │  │
+│  │  • /api/auth      - Authentication (Login/Register)      │  │
+│  │  • /api/tenants   - Tenant Management (CRUD)             │  │
+│  │  • /api/users     - User Management (CRUD)               │  │
+│  │  • /api/projects  - Project Management (CRUD)            │  │
+│  │  • /api/tasks     - Task Management (CRUD)               │  │
+│  │  • /api/health    - Health Check Endpoint                │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  CONTROLLERS LAYER                       │  │
+│  │  • authController    - Login/Register/Logout logic       │  │
+│  │  • tenantController  - Tenant CRUD operations            │  │
+│  │  • userController    - User CRUD + Limits check          │  │
+│  │  • projectController - Project CRUD + Limits check       │  │
+│  │  • taskController    - Task CRUD operations              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    MODELS LAYER                          │  │
+│  │  • userModel      - User database queries                │  │
+│  │  • tenantModel    - Tenant database queries              │  │
+│  │  • projectModel   - Project database queries             │  │
+│  │  • taskModel      - Task database queries                │  │
+│  │  • auditModel     - Audit log queries                    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ SQL Queries
+                             │ Port 5432
+┌────────────────────────────▼────────────────────────────────────┐
+│                    DATABASE SERVICE                              │
+│                   (PostgreSQL 15 + Docker)                       │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                   DATABASE TABLES                        │  │
+│  │                                                          │  │
+│  │  ┌─────────────────┐         ┌─────────────────┐       │  │
+│  │  │     tenants     │         │      users      │       │  │
+│  │  │─────────────────│         │─────────────────│       │  │
+│  │  │ • id (PK)       │◄────────┤ • tenant_id (FK)│       │  │
+│  │  │ • name          │         │ • email         │       │  │
+│  │  │ • subdomain     │         │ • password_hash │       │  │
+│  │  │ • plan          │         │ • role          │       │  │
+│  │  │ • max_users     │         │ • is_active     │       │  │
+│  │  │ • max_projects  │         └─────────────────┘       │  │
+│  │  └─────────────────┘                                    │  │
+│  │                                                          │  │
+│  │  ┌─────────────────┐         ┌─────────────────┐       │  │
+│  │  │    projects     │         │      tasks      │       │  │
+│  │  │─────────────────│         │─────────────────│       │  │
+│  │  │ • id (PK)       │◄────────┤ • project_id (FK)│      │  │
+│  │  │ • tenant_id (FK)│         │ • tenant_id (FK)│       │  │
+│  │  │ • name          │         │ • title         │       │  │
+│  │  │ • description   │         │ • status        │       │  │
+│  │  │ • status        │         │ • priority      │       │  │
+│  │  │ • created_by    │         │ • assigned_to   │       │  │
+│  │  └─────────────────┘         │ • due_date      │       │  │
+│  │                              └─────────────────┘       │  │
+│  │                                                          │  │
+│  │  ┌─────────────────┐                                    │  │
+│  │  │   audit_logs    │                                    │  │
+│  │  │─────────────────│                                    │  │
+│  │  │ • id (PK)       │                                    │  │
+│  │  │ • tenant_id (FK)│                                    │  │
+│  │  │ • user_id (FK)  │                                    │  │
+│  │  │ • action        │                                    │  │
+│  │  │ • entity_type   │                                    │  │
+│  │  │ • timestamp     │                                    │  │
+│  │  └─────────────────┘                                    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  • Persistent Volume: /var/lib/postgresql/data                  │
+│  • Auto-initialization: Migrations + Seed Data                  │
+└──────────────────────────────────────────────────────────────────┘
+
+                    DOCKER NETWORK (app-network)
+┌──────────────────────────────────────────────────────────────────┐
+│  All services communicate via service names:                     │
+│  • frontend → http://backend:5000                                │
+│  • backend → postgresql://database:5432                          │
+│  • External access: localhost:3000, localhost:5000, localhost:5432│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Authentication Flow
+
+```
+┌─────────┐                                          ┌─────────┐
+│ Client  │                                          │ Backend │
+└────┬────┘                                          └────┬────┘
+     │                                                    │
+     │  POST /api/auth/login                             │
+     │  {email, password, subdomain}                     │
+     ├───────────────────────────────────────────────────►│
+     │                                                    │
+     │                          1. Find tenant by subdomain
+     │                          2. Find user by email + tenant_id
+     │                          3. Verify password (bcrypt)
+     │                          4. Generate JWT token
+     │                          5. Log audit event
+     │                                                    │
+     │  200 OK                                           │
+     │  {success, token, user: {id, email, role}}        │
+     │◄───────────────────────────────────────────────────┤
+     │                                                    │
+     │  Save token to localStorage                       │
+     │                                                    │
+     │  GET /api/projects                                │
+     │  Headers: Authorization: Bearer <token>           │
+     ├───────────────────────────────────────────────────►│
+     │                                                    │
+     │                          1. Verify JWT signature
+     │                          2. Check token expiry
+     │                          3. Extract tenant_id from token
+     │                          4. Query projects filtered by tenant_id
+     │                                                    │
+     │  200 OK                                           │
+     │  {success, data: [...projects]}                   │
+     │◄───────────────────────────────────────────────────┤
+     │                                                    │
+```
+
+## Data Isolation Strategy
+
+```
+TENANT A (demo)              TENANT B (acme)
+┌──────────────────┐        ┌──────────────────┐
+│ Subdomain: demo  │        │ Subdomain: acme  │
+│ Plan: PRO        │        │ Plan: FREE       │
+└────────┬─────────┘        └────────┬─────────┘
+         │                           │
+    ┌────▼─────┐               ┌─────▼────┐
+    │  Users   │               │  Users   │
+    │  (3)     │               │  (2)     │
+    └────┬─────┘               └─────┬────┘
+         │                           │
+    ┌────▼─────┐               ┌─────▼────┐
+    │ Projects │               │ Projects │
+    │  (2)     │               │  (1)     │
+    └────┬─────┘               └─────┬────┘
+         │                           │
+    ┌────▼─────┐               ┌─────▼────┐
+    │  Tasks   │               │  Tasks   │
+    │  (5)     │               │  (3)     │
+    └──────────┘               └──────────┘
+
+ISOLATION ENFORCEMENT:
+━━━━━━━━━━━━━━━━━━━━━━━━
+1. JWT Token contains tenant_id
+2. ALL queries filter by tenant_id
+3. Super Admin bypass (tenant_id: null)
+4. API cannot cross tenant boundaries
+5. Foreign keys enforce referential integrity
+```
+
+## Role-Based Access Control (RBAC)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         SUPER ADMIN                              │
+│  • tenant_id: NULL                                               │
+│  • Access: ALL tenants                                           │
+│  • Permissions:                                                  │
+│    ✓ View all tenants                                           │
+│    ✓ Create/Edit/Delete tenants                                 │
+│    ✓ View all users (any tenant)                                │
+│    ✓ System-level operations                                    │
+│    ✗ Cannot access projects/tasks (not tenant-specific)         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        TENANT ADMIN                              │
+│  • tenant_id: <UUID>                                             │
+│  • Access: Own tenant only                                       │
+│  • Permissions:                                                  │
+│    ✓ Manage users in tenant                                     │
+│    ✓ Create/Edit/Delete projects                                │
+│    ✓ Create/Edit/Delete tasks                                   │
+│    ✓ View tenant details (read-only)                            │
+│    ✗ Cannot change subscription plan                            │
+│    ✗ Cannot delete themselves                                   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          USER                                    │
+│  • tenant_id: <UUID>                                             │
+│  • Access: Own tenant only                                       │
+│  • Permissions:                                                  │
+│    ✓ View projects in tenant                                    │
+│    ✓ View tasks assigned to them                                │
+│    ✓ Update own tasks                                           │
+│    ✓ View team members                                          │
+│    ✗ Cannot create projects                                     │
+│    ✗ Cannot create users                                        │
+│    ✗ Cannot delete resources                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Deployment Architecture (Docker)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      HOST MACHINE                                │
+│                                                                  │
+│  docker-compose.yml                                              │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ version: '3.8'                                           │  │
+│  │ services:                                                │  │
+│  │   database:                                              │  │
+│  │     image: postgres:15-alpine                            │  │
+│  │     ports: 5432:5432                                     │  │
+│  │     volumes: db_data:/var/lib/postgresql/data            │  │
+│  │                                                          │  │
+│  │   backend:                                               │  │
+│  │     build: ./backend                                     │  │
+│  │     ports: 5000:5000                                     │  │
+│  │     depends_on: database (health check)                  │  │
+│  │     command: sh -c "npm run migrate && npm start"        │  │
+│  │                                                          │  │
+│  │   frontend:                                              │  │
+│  │     build: ./frontend                                    │  │
+│  │     ports: 3000:3000                                     │  │
+│  │     depends_on: backend                                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  Single Command: docker-compose up -d                            │
+│  ✓ All services start automatically                              │
+│  ✓ Database migrations run on startup                            │
+│  ✓ Seed data loads automatically                                 │
+│  ✓ Health checks ensure service readiness                        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Created:** December 22, 2025  
+**Version:** 1.0.0  
+**Status:** Production Ready

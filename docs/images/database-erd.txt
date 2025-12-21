@@ -1,0 +1,342 @@
+# Database Entity Relationship Diagram (ERD)
+
+## Complete Database Schema
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            TENANTS TABLE                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│ PK │ id              │ UUID         │ PRIMARY KEY                       │
+│    │ name            │ VARCHAR(255) │ NOT NULL                          │
+│    │ subdomain       │ VARCHAR(63)  │ UNIQUE, NOT NULL                  │
+│    │ subscription_plan│ VARCHAR(20)  │ CHECK(free/pro/enterprise)        │
+│    │ max_users       │ INTEGER      │ DEFAULT based on plan             │
+│    │ max_projects    │ INTEGER      │ DEFAULT based on plan             │
+│    │ status          │ VARCHAR(20)  │ CHECK(active/suspended/trial)     │
+│    │ created_at      │ TIMESTAMP    │ DEFAULT CURRENT_TIMESTAMP         │
+│    │ updated_at      │ TIMESTAMP    │ DEFAULT CURRENT_TIMESTAMP         │
+└──────────────────────────┬──────────────────────────────────────────────┘
+                           │
+                           │ ONE-TO-MANY
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+          ▼                ▼                ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│  USERS TABLE    │  │ PROJECTS TABLE  │  │ AUDIT_LOGS TABLE│
+├─────────────────┤  ├─────────────────┤  ├─────────────────┤
+│PK│id           │  │PK│id            │  │PK│id            │
+│FK│tenant_id    │  │FK│tenant_id     │  │FK│tenant_id     │
+│  │email        │  │FK│created_by    │  │FK│user_id       │
+│  │password_hash│  │  │name          │  │  │action        │
+│  │full_name    │  │  │description   │  │  │entity_type   │
+│  │role         │  │  │status        │  │  │entity_id     │
+│  │is_active    │  │  │created_at    │  │  │ip_address    │
+│  │created_at   │  │  │updated_at    │  │  │created_at    │
+│  │updated_at   │  │  │              │  │  │              │
+└────────┬────────┘  └────────┬────────┘  └─────────────────┘
+         │                    │
+         │ ONE-TO-MANY        │ ONE-TO-MANY
+         │                    │
+         │               ┌────▼────────────────────┐
+         │               │    TASKS TABLE          │
+         │               ├─────────────────────────┤
+         │               │PK │id                  │
+         │               │FK │project_id          │
+         │               │FK │tenant_id           │
+         └───────────────┤FK │assigned_to         │
+             ONE-TO-MANY │   │title               │
+                         │   │description         │
+                         │   │status              │
+                         │   │priority            │
+                         │   │due_date            │
+                         │   │created_at          │
+                         │   │updated_at          │
+                         └─────────────────────────┘
+```
+
+## Detailed Table Specifications
+
+### 1. TENANTS TABLE
+```sql
+CREATE TABLE tenants (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                VARCHAR(255) NOT NULL,
+    subdomain           VARCHAR(63) UNIQUE NOT NULL,
+    subscription_plan   VARCHAR(20) NOT NULL DEFAULT 'free' 
+                        CHECK (subscription_plan IN ('free', 'pro', 'enterprise')),
+    max_users           INTEGER NOT NULL DEFAULT 5,
+    max_projects        INTEGER NOT NULL DEFAULT 3,
+    status              VARCHAR(20) NOT NULL DEFAULT 'active'
+                        CHECK (status IN ('active', 'suspended', 'trial')),
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_tenants_subdomain ON tenants(subdomain);
+CREATE INDEX idx_tenants_status ON tenants(status);
+```
+
+**Relationships:**
+- ONE tenant has MANY users
+- ONE tenant has MANY projects
+- ONE tenant has MANY audit_logs
+
+**Constraints:**
+- ✓ subdomain must be unique (used for tenant identification)
+- ✓ subscription_plan controls max_users and max_projects limits
+- ✓ status controls tenant access (active/suspended/trial)
+
+---
+
+### 2. USERS TABLE
+```sql
+CREATE TABLE users (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    email           VARCHAR(255) NOT NULL,
+    password_hash   TEXT NOT NULL,
+    full_name       VARCHAR(255) NOT NULL,
+    role            VARCHAR(20) NOT NULL DEFAULT 'user'
+                    CHECK (role IN ('super_admin', 'tenant_admin', 'user')),
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    -- UNIQUE constraint: Email unique per tenant
+    CONSTRAINT unique_email_per_tenant UNIQUE (tenant_id, email)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+```
+
+**Relationships:**
+- MANY users belong to ONE tenant (FK: tenant_id)
+- ONE user creates MANY projects (FK: created_by in projects)
+- ONE user is assigned MANY tasks (FK: assigned_to in tasks)
+- ONE user creates MANY audit_logs (FK: user_id in audit_logs)
+
+**Special Cases:**
+- ⚠️ Super admin users have tenant_id = NULL
+- ⚠️ Email is unique per tenant, NOT globally unique
+- ⚠️ Deleting a tenant CASCADE deletes all users
+
+---
+
+### 3. PROJECTS TABLE
+```sql
+CREATE TABLE projects (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    created_by      UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT,
+    status          VARCHAR(20) NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active', 'archived', 'completed')),
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_projects_tenant_id ON projects(tenant_id);
+CREATE INDEX idx_projects_created_by ON projects(created_by);
+CREATE INDEX idx_projects_status ON projects(status);
+```
+
+**Relationships:**
+- MANY projects belong to ONE tenant (FK: tenant_id)
+- MANY projects created by ONE user (FK: created_by)
+- ONE project has MANY tasks (FK: project_id in tasks)
+
+**Constraints:**
+- ✓ tenant_id cannot be NULL (all projects must belong to a tenant)
+- ✓ Deleting a tenant CASCADE deletes all projects
+- ✓ Deleting a user SET NULL on created_by (preserves project)
+- ✓ Subscription plan limits max_projects per tenant
+
+---
+
+### 4. TASKS TABLE
+```sql
+CREATE TABLE tasks (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    assigned_to     UUID REFERENCES users(id) ON DELETE SET NULL,
+    title           VARCHAR(255) NOT NULL,
+    description     TEXT,
+    status          VARCHAR(20) NOT NULL DEFAULT 'todo'
+                    CHECK (status IN ('todo', 'in_progress', 'completed')),
+    priority        VARCHAR(20) NOT NULL DEFAULT 'medium'
+                    CHECK (priority IN ('low', 'medium', 'high')),
+    due_date        DATE,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX idx_tasks_tenant_id ON tasks(tenant_id);
+CREATE INDEX idx_tasks_assigned_to ON tasks(assigned_to);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_due_date ON tasks(due_date);
+```
+
+**Relationships:**
+- MANY tasks belong to ONE project (FK: project_id)
+- MANY tasks belong to ONE tenant (FK: tenant_id)
+- MANY tasks assigned to ONE user (FK: assigned_to)
+
+**Constraints:**
+- ✓ project_id cannot be NULL (tasks must belong to a project)
+- ✓ tenant_id ensures data isolation at task level
+- ✓ Deleting a project CASCADE deletes all tasks
+- ✓ Deleting a user SET NULL on assigned_to (preserves task)
+- ⚠️ tenant_id should match project's tenant_id (enforce in application logic)
+
+---
+
+### 5. AUDIT_LOGS TABLE
+```sql
+CREATE TABLE audit_logs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
+    action          VARCHAR(50) NOT NULL,
+    entity_type     VARCHAR(50) NOT NULL,
+    entity_id       UUID,
+    ip_address      VARCHAR(45),
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_audit_logs_tenant_id ON audit_logs(tenant_id);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+```
+
+**Relationships:**
+- MANY audit_logs belong to ONE tenant (FK: tenant_id)
+- MANY audit_logs created by ONE user (FK: user_id)
+
+**Purpose:**
+- 📝 Logs all important system actions
+- 📝 Tracks who did what and when
+- 📝 Useful for compliance and debugging
+
+**Common Actions:**
+- `CREATE_USER`, `UPDATE_USER`, `DELETE_USER`
+- `CREATE_PROJECT`, `UPDATE_PROJECT`, `DELETE_PROJECT`
+- `CREATE_TASK`, `UPDATE_TASK`, `DELETE_TASK`
+- `UPDATE_TENANT`, `LOGIN`, `LOGOUT`
+
+---
+
+## Data Isolation Pattern
+
+### Multi-Tenant Isolation Strategy: Shared Database + Shared Schema with tenant_id
+
+```
+DATABASE: saas_db (Single Database)
+├── SCHEMA: public (Shared Schema)
+│   ├── TABLE: tenants
+│   ├── TABLE: users        (tenant_id column)
+│   ├── TABLE: projects     (tenant_id column)
+│   ├── TABLE: tasks        (tenant_id column)
+│   └── TABLE: audit_logs   (tenant_id column)
+```
+
+**Isolation Enforcement:**
+
+1. **Every query filters by tenant_id:**
+   ```sql
+   SELECT * FROM projects WHERE tenant_id = ?
+   ```
+
+2. **JWT token contains tenant_id:**
+   ```javascript
+   const token = jwt.sign({ 
+     userId: user.id, 
+     tenantId: user.tenant_id, 
+     role: user.role 
+   }, secret);
+   ```
+
+3. **Middleware extracts tenant_id from token:**
+   ```javascript
+   const tenantId = req.user.tenantId;
+   // Use tenantId to filter all queries
+   ```
+
+4. **Super admin bypass:**
+   ```javascript
+   if (req.user.role === 'super_admin') {
+     // No tenant_id filter - access all data
+   }
+   ```
+
+---
+
+## Subscription Plan Limits
+
+```
+┌──────────────┬────────────┬──────────────┬──────────────────┐
+│ PLAN         │ MAX_USERS  │ MAX_PROJECTS │ MONTHLY_PRICE    │
+├──────────────┼────────────┼──────────────┼──────────────────┤
+│ FREE         │ 5          │ 3            │ $0               │
+│ PRO          │ 25         │ 15           │ $29/month        │
+│ ENTERPRISE   │ 100        │ 50           │ $99/month        │
+└──────────────┴────────────┴──────────────┴──────────────────┘
+```
+
+**Enforcement Logic:**
+```javascript
+// Before creating a new user:
+const currentUserCount = await countUsersByTenant(tenantId);
+if (currentUserCount >= tenant.max_users) {
+  return res.status(403).json({ 
+    message: `User limit reached (${tenant.max_users} max)` 
+  });
+}
+
+// Before creating a new project:
+const currentProjectCount = await countProjectsByTenant(tenantId);
+if (currentProjectCount >= tenant.max_projects) {
+  return res.status(403).json({ 
+    message: `Project limit reached (${tenant.max_projects} max)` 
+  });
+}
+```
+
+---
+
+## Cascade Delete Rules
+
+```
+DELETE tenant
+    └─► CASCADE delete users
+        └─► SET NULL on projects.created_by
+        └─► SET NULL on tasks.assigned_to
+    └─► CASCADE delete projects
+        └─► CASCADE delete tasks
+    └─► CASCADE delete audit_logs
+
+DELETE user
+    └─► SET NULL on projects.created_by
+    └─► SET NULL on tasks.assigned_to
+
+DELETE project
+    └─► CASCADE delete tasks
+```
+
+---
+
+**Created:** December 22, 2025  
+**Version:** 1.0.0  
+**Database:** PostgreSQL 15  
+**Status:** Production Ready

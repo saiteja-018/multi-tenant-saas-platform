@@ -1,0 +1,94 @@
+{
+  "testCredentials": {
+    "superAdmin": {
+      "email": "superadmin@system.com",
+      "password": "Admin@123",
+      "role": "super_admin",
+      "tenantId": null
+    },
+    "tenants": [
+      {
+        "name": "Demo Company",
+        "subdomain": "demo",
+        "status": "active",
+        "subscriptionPlan": "pro",
+        "maxUsers": 25,
+        "maxProjects": 15,
+        "admin": {
+          "email": "admin@demo.com",
+          "password": "Demo@123",
+          "fullName": "Demo Admin",
+          "role": "tenant_admin"
+        },
+        "users": [
+          {
+            "email": "user1@demo.com",
+            "password": "User@123",
+            "fullName": "John Developer",
+            "role": "user"
+          },
+          {
+            "email": "user2@demo.com",
+            "password": "User@123",
+            "fullName": "Sarah Designer",
+            "role": "user"
+          }
+        ],
+        "projects": [
+          {
+            "name": "Website Redesign",
+            "description": "Complete redesign of company website with modern UI/UX",
+            "status": "active"
+          },
+          {
+            "name": "Mobile App Development",
+            "description": "Native mobile application for iOS and Android platforms",
+            "status": "active"
+          }
+        ],
+        "tasks": [
+          {
+            "project": "Website Redesign",
+            "title": "Design homepage mockup",
+            "description": "Create high-fidelity design mockups for the homepage",
+            "status": "completed",
+            "priority": "high",
+            "assignedTo": "user2@demo.com"
+          },
+          {
+            "project": "Website Redesign",
+            "title": "Implement responsive navigation",
+            "description": "Code responsive navigation menu with mobile support",
+            "status": "in_progress",
+            "priority": "high",
+            "assignedTo": "user1@demo.com"
+          },
+          {
+            "project": "Website Redesign",
+            "title": "Setup contact form",
+            "description": "Integrate contact form with email notification system",
+            "status": "todo",
+            "priority": "medium",
+            "assignedTo": "user1@demo.com"
+          },
+          {
+            "project": "Mobile App Development",
+            "title": "Setup React Native project",
+            "description": "Initialize React Native project with required dependencies",
+            "status": "completed",
+            "priority": "high",
+            "assignedTo": "user1@demo.com"
+          },
+          {
+            "project": "Mobile App Development",
+            "title": "Design app screens",
+            "description": "Create UI designs for all main app screens",
+            "status": "in_progress",
+            "priority": "high",
+            "assignedTo": "user2@demo.com"
+          }
+        ]
+      }
+    ]
+  }
+}

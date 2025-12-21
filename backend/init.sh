@@ -1,0 +1,34 @@
+#!/bin/sh
+set -e
+
+echo "🔄 Starting initialization..."
+
+# Wait for database to be ready
+echo "⏳ Waiting for PostgreSQL..."
+until PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "postgres" -c '\q' 2>/dev/null; do
+  echo "⏳ PostgreSQL is unavailable - sleeping"
+  sleep 2
+done
+
+echo "✅ PostgreSQL is up"
+
+# Create database if it doesn't exist
+echo "🔄 Creating database if needed..."
+PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "postgres" -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || true
+
+# Verify database exists
+echo "✅ Database is ready"
+
+# Run migrations
+echo "🔄 Running database migrations..."
+node scripts/migrate.js
+
+# Run seeds
+echo "🌱 Seeding database..."
+node scripts/seed.js
+
+echo "✅ Initialization complete!"
+
+# Start the application
+echo "🚀 Starting server..."
+exec node src/server.js
