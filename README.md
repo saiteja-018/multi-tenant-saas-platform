@@ -2,6 +2,10 @@
 
 A production-ready, multi-tenant SaaS application for project and task management with complete data isolation, role-based access control, and subscription management.
 
+## 🎥 Demo Video
+
+Watch the walkthrough: [Demo Video](https://drive.google.com/file/d/1b1ZM6l_P1tLVlmN1ZI7_c6x4DNnk2_fy/view?usp=sharing)
+
 ## 🚀 Features
 
 - **Multi-Tenancy**: Complete data isolation between organizations using shared database with tenant_id filtering
