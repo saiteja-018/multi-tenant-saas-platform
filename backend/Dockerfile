@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20.13-alpine
 
 # Install PostgreSQL client for health checks
 RUN apk add --no-cache postgresql-client
