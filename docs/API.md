@@ -29,6 +29,67 @@ The following table maps **main.goal.txt spec endpoints** to actual implementati
 | GET `/health` | GET `/health` | GET | Backend health |
 | **GET `/api/health`** | **GET `/api/health`** | **GET** | **API health (spec compliant)** |
 
+## Required Spec Endpoints (19)
+
+Each endpoint below is implemented directly or via an alias listed in the mapping table.
+
+### POST `/auth/register-tenant`
+Alias: `POST /auth/register`.
+
+### POST `/auth/login`
+User login and JWT issuance.
+
+### GET `/auth/me`
+Alias: `GET /auth/profile`.
+
+### POST `/auth/logout`
+Stateless logout; client should discard token.
+
+### GET `/tenants`
+List tenants (super admin only).
+
+### GET `/tenants/:tenantId`
+Get a tenant by ID.
+
+### PUT `/tenants/:tenantId`
+Update tenant (super admin only for plan/limits).
+
+### POST `/tenants/:tenantId/users`
+Alias: `POST /users` with `tenantId` in body.
+
+### GET `/tenants/:tenantId/users`
+Alias: `GET /users?tenantId=:tenantId`.
+
+### POST `/projects`
+Create a project.
+
+### GET `/projects`
+List projects.
+
+### PUT `/projects/:projectId`
+Update a project.
+
+### DELETE `/projects/:projectId`
+Delete a project.
+
+### POST `/projects/:projectId/tasks`
+Alias: `POST /tasks` with `projectId` in body.
+
+### GET `/projects/:projectId/tasks`
+Alias: `GET /tasks/project/:projectId`.
+
+### PATCH `/tasks/:taskId/status`
+Update task status only.
+
+### PUT `/tasks/:taskId`
+Update task fields.
+
+### PUT `/users/:userId`
+Update a user.
+
+### DELETE `/users/:userId`
+Delete a user.
+
 ## Authentication
 
 All protected endpoints require header: `Authorization: Bearer <token>`

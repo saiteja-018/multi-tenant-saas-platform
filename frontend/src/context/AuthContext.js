@@ -8,20 +8,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (token && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error parsing user:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+    const bootstrapAuth = async () => {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      if (token && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+
+          const profile = await authService.getProfile();
+          if (profile?.success) {
+            const refreshedUser = {
+              id: profile.data.id,
+              email: profile.data.email,
+              fullName: profile.data.fullName,
+              role: profile.data.role,
+              tenantId: profile.data.tenantId
+            };
+            localStorage.setItem('user', JSON.stringify(refreshedUser));
+            setUser(refreshedUser);
+          }
+        } catch (error) {
+          console.error('Error validating session:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    bootstrapAuth();
   }, []);
 
   const login = async (email, password, subdomain) => {
@@ -33,8 +51,8 @@ export const AuthProvider = ({ children }) => {
     throw new Error(response.message);
   };
 
-  const logout = () => {
-    authService.logout();
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
   };
 

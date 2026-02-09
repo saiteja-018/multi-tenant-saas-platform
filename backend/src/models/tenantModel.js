@@ -2,7 +2,7 @@ const { query } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 // Create tenant
-const createTenant = async ({ name, subdomain, subscriptionPlan = 'free', status = 'active' }) => {
+const createTenant = async ({ name, subdomain, subscriptionPlan = 'free', status = 'active' }, client = null) => {
   const id = uuidv4();
   
   // Set limits based on plan
@@ -20,7 +20,8 @@ const createTenant = async ({ name, subdomain, subscriptionPlan = 'free', status
     RETURNING *
   `;
   
-  const result = await query(sql, [id, name, subdomain, status, subscriptionPlan, maxUsers, maxProjects]);
+  const runQuery = client ? client.query.bind(client) : query;
+  const result = await runQuery(sql, [id, name, subdomain, status, subscriptionPlan, maxUsers, maxProjects]);
   return result.rows[0];
 };
 

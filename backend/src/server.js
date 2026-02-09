@@ -10,8 +10,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const allowedOrigins = (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -51,19 +56,17 @@ app.get('/', (req, res) => {
 const { pool } = require('./config/database');
 app.get('/api/health', async (req, res) => {
   try {
-    // Simple DB connectivity check
     await pool.query('SELECT 1');
     res.json({
-      success: true,
-      message: 'OK',
+      status: 'ok',
       database: 'connected',
       timestamp: new Date().toISOString()
     });
   } catch (err) {
     res.status(500).json({
-      success: false,
-      message: 'Database connection failed',
-      error: err.message
+      status: 'error',
+      database: 'disconnected',
+      timestamp: new Date().toISOString()
     });
   }
 });

@@ -2,7 +2,7 @@ const { query } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 // Create user
-const createUser = async ({ tenantId, email, passwordHash, fullName, role = 'user', isActive = true }) => {
+const createUser = async ({ tenantId, email, passwordHash, fullName, role = 'user', isActive = true }, client = null) => {
   const id = uuidv4();
   
   const sql = `
@@ -11,7 +11,8 @@ const createUser = async ({ tenantId, email, passwordHash, fullName, role = 'use
     RETURNING id, tenant_id, email, full_name, role, is_active, created_at, updated_at
   `;
   
-  const result = await query(sql, [id, tenantId, email, passwordHash, fullName, role, isActive]);
+  const runQuery = client ? client.query.bind(client) : query;
+  const result = await runQuery(sql, [id, tenantId, email, passwordHash, fullName, role, isActive]);
   return result.rows[0];
 };
 

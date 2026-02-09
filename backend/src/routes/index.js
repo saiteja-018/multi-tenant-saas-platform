@@ -12,9 +12,9 @@ const { pool } = require('../config/database')
 router.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1')
-    res.json({ success: true, message: 'OK', database: 'connected' })
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() })
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Database connection failed', error: err.message })
+    res.status(500).json({ status: 'error', database: 'disconnected', timestamp: new Date().toISOString() })
   }
 })
 // Mount routes

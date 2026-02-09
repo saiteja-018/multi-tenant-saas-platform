@@ -6,7 +6,8 @@ const { logAudit } = require('../utils/logger');
 // Create task
 const createTask = async (req, res, next) => {
   try {
-    const { projectId, title, description, status = 'todo', priority = 'medium', assignedTo, dueDate } = req.body;
+    const projectId = req.params.projectId || req.body.projectId;
+    const { title, description, status = 'todo', priority = 'medium', assignedTo, dueDate } = req.body;
 
     if (!projectId || !title) {
       return res.status(400).json({
@@ -45,7 +46,7 @@ const createTask = async (req, res, next) => {
     // Create task
     const task = await taskModel.createTask({
       projectId,
-      tenantId: req.user.tenantId,
+      tenantId: project.tenant_id,
       title,
       description,
       status,
@@ -152,7 +153,7 @@ const getTaskById = async (req, res, next) => {
 const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
 
     // Get task
     const task = await taskModel.findTaskById(id);
@@ -169,6 +170,13 @@ const updateTask = async (req, res, next) => {
         success: false,
         message: 'Access denied'
       });
+    }
+
+    if (updates.assignedTo !== undefined) {
+      updates.assigned_to = updates.assignedTo;
+    }
+    if (updates.dueDate !== undefined) {
+      updates.due_date = updates.dueDate;
     }
 
     // If changing assignment, verify user exists in tenant

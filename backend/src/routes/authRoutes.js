@@ -14,8 +14,6 @@ router.get('/profile', authenticate, authController.getProfile);
 // Alias to match spec naming
 router.get('/me', authenticate, authController.getProfile);
 // Stateless logout for JWT-only setup
-router.post('/logout', authenticate, (req, res) => {
-	res.json({ success: true, message: 'Logged out' });
-});
+router.post('/logout', authenticate, authController.logout);
 
 module.exports = router;

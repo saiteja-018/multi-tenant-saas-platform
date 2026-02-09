@@ -44,7 +44,7 @@ const createUser = async (req, res, next) => {
     // Check user limit
     const currentUserCount = await userModel.countUsersByTenant(tenantId);
     if (currentUserCount >= tenant.max_users) {
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
         message: `User limit reached (${tenant.max_users} users max for ${tenant.subscription_plan} plan)`
       });
@@ -182,7 +182,7 @@ const getUserById = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    let updates = req.body;
 
     // Get user
     const user = await userModel.findUserById(id);
@@ -208,9 +208,17 @@ const updateUser = async (req, res, next) => {
       });
     }
 
+    // Normalize field names
+    if (updates.fullName !== undefined) {
+      updates.full_name = updates.fullName;
+    }
+    if (updates.isActive !== undefined) {
+      updates.is_active = updates.isActive;
+    }
+
     // Regular users can only update their own full name
     if (req.user.role === 'user') {
-      updates = { full_name: updates.fullName || updates.full_name };
+      updates = { full_name: updates.full_name };
     }
 
     // Update user
@@ -261,7 +269,7 @@ const deleteUser = async (req, res, next) => {
 
     // Cannot delete yourself
     if (req.user.userId === id) {
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
         message: 'Cannot delete your own account'
       });

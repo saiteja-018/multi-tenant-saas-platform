@@ -3,6 +3,7 @@ const tenantModel = require('../models/tenantModel');
 const { hashPassword, comparePassword } = require('../utils/bcrypt');
 const { generateToken } = require('../utils/jwt');
 const { logAudit } = require('../utils/logger');
+const { transaction } = require('../config/database');
 
 // Register tenant (creates both tenant and admin user)
 const register = async (req, res, next) => {
@@ -26,25 +27,26 @@ const register = async (req, res, next) => {
       });
     }
 
-    // Create tenant
-    const tenant = await tenantModel.createTenant({
-      name: tenantName,
-      subdomain: subdomain.toLowerCase(),
-      subscriptionPlan: 'free',
-      status: 'active'
-    });
+    const { tenant, admin } = await transaction(async (client) => {
+      const createdTenant = await tenantModel.createTenant({
+        name: tenantName,
+        subdomain: subdomain.toLowerCase(),
+        subscriptionPlan: 'free',
+        status: 'active'
+      }, client);
 
-    // Hash password
-    const passwordHash = await hashPassword(adminPassword);
+      const passwordHash = await hashPassword(adminPassword);
 
-    // Create admin user
-    const admin = await userModel.createUser({
-      tenantId: tenant.id,
-      email: adminEmail.toLowerCase(),
-      passwordHash,
-      fullName: adminFullName,
-      role: 'tenant_admin',
-      isActive: true
+      const createdAdmin = await userModel.createUser({
+        tenantId: createdTenant.id,
+        email: adminEmail.toLowerCase(),
+        passwordHash,
+        fullName: adminFullName,
+        role: 'tenant_admin',
+        isActive: true
+      }, client);
+
+      return { tenant: createdTenant, admin: createdAdmin };
     });
 
     // Log audit
@@ -82,7 +84,8 @@ const register = async (req, res, next) => {
 // Login
 const login = async (req, res, next) => {
   try {
-    const { email, password, subdomain } = req.body;
+    const { email, password, subdomain, tenantSubdomain } = req.body;
+    const loginSubdomain = subdomain || tenantSubdomain;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -94,11 +97,11 @@ const login = async (req, res, next) => {
     let user;
     
     // Check if this is a super admin login (no subdomain)
-    if (!subdomain || subdomain === 'admin') {
+    if (!loginSubdomain || loginSubdomain === 'admin') {
       user = await userModel.findSuperAdminByEmail(email.toLowerCase());
     } else {
       // Regular user login - find tenant first
-      const tenant = await tenantModel.findTenantBySubdomain(subdomain.toLowerCase());
+      const tenant = await tenantModel.findTenantBySubdomain(loginSubdomain.toLowerCase());
       
       if (!tenant) {
         return res.status(404).json({
@@ -201,6 +204,9 @@ const getProfile = async (req, res, next) => {
         tenantId: user.tenant_id,
         tenantName: user.tenant_name,
         subdomain: user.subdomain,
+        subscriptionPlan: user.subscription_plan,
+        maxUsers: user.max_users,
+        maxProjects: user.max_projects,
         createdAt: user.created_at
       }
     });
@@ -212,5 +218,24 @@ const getProfile = async (req, res, next) => {
 module.exports = {
   register,
   login,
-  getProfile
+  getProfile,
+  logout: async (req, res, next) => {
+    try {
+      await logAudit({
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        action: 'USER_LOGOUT',
+        entityType: 'user',
+        entityId: req.user.userId,
+        ipAddress: req.ip
+      });
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 };

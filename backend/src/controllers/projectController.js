@@ -27,7 +27,7 @@ const createProject = async (req, res, next) => {
 
     const currentProjectCount = await projectModel.countProjectsByTenant(tenantId);
     if (currentProjectCount >= tenant.max_projects) {
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
         message: `Project limit reached (${tenant.max_projects} projects max for ${tenant.subscription_plan} plan)`
       });
@@ -141,6 +141,14 @@ const updateProject = async (req, res, next) => {
       });
     }
 
+    // Only tenant_admin or project creator can update
+    if (req.user.role === 'user' && project.created_by !== req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the project creator or tenant admin can update this project'
+      });
+    }
+
     // Update project
     const updatedProject = await projectModel.updateProject(id, updates);
 
@@ -187,10 +195,11 @@ const deleteProject = async (req, res, next) => {
       });
     }
 
-    if (req.user.role === 'user') {
+    // Only tenant_admin or project creator can delete
+    if (req.user.role === 'user' && project.created_by !== req.user.userId) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can delete projects'
+        message: 'Only the project creator or tenant admin can delete this project'
       });
     }
 

@@ -8,7 +8,9 @@ const Register = () => {
     subdomain: '',
     adminEmail: '',
     adminPassword: '',
-    adminFullName: ''
+    adminFullName: '',
+    confirmPassword: '',
+    acceptTerms: false
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,6 +28,18 @@ const Register = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (formData.adminPassword !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.acceptTerms) {
+      setError('You must accept the terms & conditions');
+      setLoading(false);
+      return;
+    }
 
     try {
       await authService.register(formData);
@@ -112,6 +126,33 @@ const Register = () => {
             />
           </div>
 
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Confirm Password</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              style={styles.input}
+              placeholder="Re-enter password"
+            />
+          </div>
+
+          <div style={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              id="acceptTerms"
+              name="acceptTerms"
+              checked={formData.acceptTerms}
+              onChange={(e) => setFormData({ ...formData, acceptTerms: e.target.checked })}
+              style={styles.checkbox}
+            />
+            <label htmlFor="acceptTerms" style={styles.checkboxLabel}>
+              I agree to the Terms & Conditions
+            </label>
+          </div>
+
           <button type="submit" disabled={loading} style={styles.button}>
             {loading ? 'Registering...' : 'Register'}
           </button>
@@ -186,6 +227,20 @@ const styles = {
     fontSize: '0.75rem',
     color: '#6b7280',
     fontStyle: 'italic'
+  },
+  checkboxRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginTop: '0.5rem'
+  },
+  checkbox: {
+    width: '16px',
+    height: '16px'
+  },
+  checkboxLabel: {
+    fontSize: '0.875rem',
+    color: '#374151'
   },
   button: {
     padding: '0.875rem 1.5rem',

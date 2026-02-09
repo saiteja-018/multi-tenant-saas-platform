@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { tenantService, projectService } from '../services';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tenant, setTenant] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +106,18 @@ const Dashboard = () => {
             <h2 style={styles.sectionTitle}>Recent Projects</h2>
             <div style={styles.projectGrid}>
               {projects.map(project => (
-                <div key={project.id} style={styles.projectCard}>
+                <div
+                  key={project.id}
+                  style={styles.projectCard}
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      navigate(`/projects/${project.id}`);
+                    }
+                  }}
+                >
                   <div style={styles.projectHeader}>
                     <h3 style={styles.projectName}>{project.name}</h3>
                     <span style={styles.statusBadge}>
@@ -301,7 +314,8 @@ const styles = {
     color: '#065f46',
     borderRadius: '9999px',
     fontSize: '0.75rem',
-    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    cursor: 'pointer'
     textTransform: 'capitalize'
   },
   projectDesc: {
