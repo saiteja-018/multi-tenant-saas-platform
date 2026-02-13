@@ -27,7 +27,7 @@ export const authService = {
   },
 
   getProfile: async () => {
-    const response = await api.get('/auth/profile');
+    const response = await api.get('/auth/me');
     return response.data;
   }
 };
@@ -120,12 +120,13 @@ export const projectService = {
 
 export const taskService = {
   createTask: async (data) => {
-    const response = await api.post('/tasks', data);
+    const { projectId, ...payload } = data;
+    const response = await api.post(`/projects/${projectId}/tasks`, payload);
     return response.data;
   },
 
   getTasksByProject: async (projectId, params) => {
-    const response = await api.get(`/tasks/project/${projectId}`, { params });
+    const response = await api.get(`/projects/${projectId}/tasks`, { params });
     return response.data;
   },
 

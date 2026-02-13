@@ -105,6 +105,508 @@ All protected endpoints require header: `Authorization: Bearer <token>`
 - RBAC: super_admin, tenant_admin, user roles
 - All responses follow `{ success, message, data }` structure
 - Proper HTTP status codes: 200, 201, 400, 401, 403, 404, 409
+
+---
+
+# Spec-Compliant Endpoint Examples (19 Required)
+
+Base URL: `http://localhost:5000/api`
+
+## 1) POST /auth/register-tenant
+Auth: Public
+
+Request:
+```json
+{
+  "tenantName": "Test Company Alpha",
+  "subdomain": "testalpha",
+  "adminEmail": "admin@testalpha.com",
+  "adminPassword": "TestPass@123",
+  "adminFullName": "Alpha Admin"
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "message": "Tenant registered successfully",
+  "data": {
+    "tenantId": "uuid",
+    "subdomain": "testalpha",
+    "adminUser": {
+      "id": "uuid",
+      "email": "admin@testalpha.com",
+      "fullName": "Alpha Admin",
+      "role": "tenant_admin"
+    }
+  }
+}
+```
+
+## 2) POST /auth/login
+Auth: Public
+
+Request:
+```json
+{
+  "email": "admin@demo.com",
+  "password": "Demo@123",
+  "tenantSubdomain": "demo"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "admin@demo.com",
+      "fullName": "Demo Admin",
+      "role": "tenant_admin",
+      "tenantId": "uuid"
+    },
+    "token": "jwt-token-string",
+    "expiresIn": 86400
+  }
+}
+```
+
+## 3) GET /auth/me
+Auth: Required
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "admin@demo.com",
+    "fullName": "Demo Admin",
+    "role": "tenant_admin",
+    "isActive": true,
+    "tenant": {
+      "id": "uuid",
+      "name": "Demo Company",
+      "subdomain": "demo",
+      "subscriptionPlan": "pro",
+      "maxUsers": 25,
+      "maxProjects": 15
+    }
+  }
+}
+```
+
+## 4) POST /auth/logout
+Auth: Required
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+## 5) GET /tenants/:tenantId
+Auth: Required (tenant member or super_admin)
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Demo Company",
+    "subdomain": "demo",
+    "status": "active",
+    "subscriptionPlan": "pro",
+    "maxUsers": 25,
+    "maxProjects": 15,
+    "createdAt": "timestamp",
+    "stats": {
+      "totalUsers": 5,
+      "totalProjects": 3,
+      "totalTasks": 15
+    }
+  }
+}
+```
+
+## 6) PUT /tenants/:tenantId
+Auth: Required (tenant_admin or super_admin)
+
+Request:
+```json
+{
+  "name": "Updated Company Name"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Tenant updated successfully",
+  "data": {
+    "id": "uuid",
+    "name": "Updated Company Name",
+    "updatedAt": "timestamp"
+  }
+}
+```
+
+## 7) GET /tenants
+Auth: Required (super_admin only)
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "tenants": [
+      {
+        "id": "uuid",
+        "name": "Demo Company",
+        "subdomain": "demo",
+        "status": "active",
+        "subscriptionPlan": "pro",
+        "totalUsers": 5,
+        "totalProjects": 3,
+        "createdAt": "timestamp"
+      }
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 1,
+      "totalTenants": 1,
+      "limit": 10
+    }
+  }
+}
+```
+
+## 8) POST /tenants/:tenantId/users
+Auth: Required (tenant_admin)
+
+Request:
+```json
+{
+  "email": "newuser@demo.com",
+  "password": "NewUser@123",
+  "fullName": "New User",
+  "role": "user"
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "message": "User created successfully",
+  "data": {
+    "id": "uuid",
+    "email": "newuser@demo.com",
+    "fullName": "New User",
+    "role": "user",
+    "tenantId": "uuid",
+    "isActive": true,
+    "createdAt": "timestamp"
+  }
+}
+```
+
+## 9) GET /tenants/:tenantId/users
+Auth: Required
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "uuid",
+        "email": "admin@demo.com",
+        "fullName": "Demo Admin",
+        "role": "tenant_admin",
+        "isActive": true,
+        "createdAt": "timestamp"
+      }
+    ],
+    "total": 5,
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 1,
+      "limit": 50
+    }
+  }
+}
+```
+
+## 10) PUT /users/:userId
+Auth: Required (tenant_admin or self)
+
+Request:
+```json
+{
+  "fullName": "Updated User"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "User updated successfully",
+  "data": {
+    "id": "uuid",
+    "fullName": "Updated User",
+    "role": "user",
+    "updatedAt": "timestamp"
+  }
+}
+```
+
+## 11) DELETE /users/:userId
+Auth: Required (tenant_admin)
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "User deleted successfully"
+}
+```
+
+## 12) POST /projects
+Auth: Required
+
+Request:
+```json
+{
+  "name": "Website Redesign Project",
+  "description": "Complete redesign of company website"
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "tenantId": "uuid",
+    "name": "Website Redesign Project",
+    "description": "Complete redesign of company website",
+    "status": "active",
+    "createdBy": "uuid",
+    "createdAt": "timestamp"
+  }
+}
+```
+
+## 13) GET /projects
+Auth: Required
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "projects": [
+      {
+        "id": "uuid",
+        "name": "Website Redesign",
+        "description": "Complete redesign",
+        "status": "active",
+        "createdBy": {
+          "id": "uuid",
+          "fullName": "Demo Admin"
+        },
+        "taskCount": 5,
+        "completedTaskCount": 2,
+        "createdAt": "timestamp"
+      }
+    ],
+    "total": 1,
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 1,
+      "limit": 20
+    }
+  }
+}
+```
+
+## 14) PUT /projects/:projectId
+Auth: Required (tenant_admin or creator)
+
+Request:
+```json
+{
+  "name": "Updated Project Name",
+  "description": "Updated description",
+  "status": "archived"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Project updated successfully",
+  "data": {
+    "id": "uuid",
+    "name": "Updated Project Name",
+    "description": "Updated description",
+    "status": "archived",
+    "updatedAt": "timestamp"
+  }
+}
+```
+
+## 15) DELETE /projects/:projectId
+Auth: Required (tenant_admin or creator)
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Project deleted successfully"
+}
+```
+
+## 16) POST /projects/:projectId/tasks
+Auth: Required
+
+Request:
+```json
+{
+  "title": "Design homepage mockup",
+  "description": "Create high-fidelity design",
+  "assignedTo": "user-uuid-here",
+  "priority": "high",
+  "dueDate": "2024-07-15"
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "projectId": "uuid",
+    "tenantId": "uuid",
+    "title": "Design homepage mockup",
+    "description": "Create high-fidelity design",
+    "status": "todo",
+    "priority": "high",
+    "assignedTo": {
+      "id": "uuid",
+      "fullName": "John Developer",
+      "email": "user1@demo.com"
+    },
+    "dueDate": "2024-07-15",
+    "createdAt": "timestamp"
+  }
+}
+```
+
+## 17) GET /projects/:projectId/tasks
+Auth: Required
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "tasks": [
+      {
+        "id": "uuid",
+        "title": "Design homepage mockup",
+        "description": "Create high-fidelity design",
+        "status": "in_progress",
+        "priority": "high",
+        "assignedTo": {
+          "id": "uuid",
+          "fullName": "John Developer",
+          "email": "user1@demo.com"
+        },
+        "dueDate": "2024-07-01",
+        "createdAt": "timestamp"
+      }
+    ],
+    "total": 5,
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 1,
+      "limit": 50
+    }
+  }
+}
+```
+
+## 18) PATCH /tasks/:taskId/status
+Auth: Required
+
+Request:
+```json
+{
+  "status": "completed"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "completed",
+    "updatedAt": "timestamp"
+  }
+}
+```
+
+## 19) PUT /tasks/:taskId
+Auth: Required
+
+Request:
+```json
+{
+  "title": "Updated task title",
+  "description": "Updated description",
+  "priority": "high",
+  "assignedTo": "user-uuid-here",
+  "dueDate": "2024-08-01"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Task updated successfully",
+  "data": {
+    "id": "uuid",
+    "title": "Updated task title",
+    "description": "Updated description",
+    "status": "in_progress",
+    "priority": "high",
+    "assignedTo": {
+      "id": "uuid",
+      "fullName": "John Developer",
+      "email": "user1@demo.com"
+    },
+    "dueDate": "2024-08-01",
+    "updatedAt": "timestamp"
+  }
+}
+```
 # Multi-Tenant SaaS Platform - API Documentation
 
 Base URL: `http://localhost:5000/api`

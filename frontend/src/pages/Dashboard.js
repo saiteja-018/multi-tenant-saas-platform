@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
-import { tenantService, projectService } from '../services';
+import { tenantService, projectService, taskService } from '../services';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tenant, setTenant] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [myTasks, setMyTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,9 +21,28 @@ const Dashboard = () => {
       if (user.tenantId) {
         const tenantData = await tenantService.getCurrentTenant();
         setTenant(tenantData.data);
-        
+
         const projectsData = await projectService.getProjects({ limit: 5 });
-        setProjects(projectsData.data);
+        const recentProjects = projectsData.data?.projects || [];
+        setProjects(recentProjects);
+
+        const taskBuckets = await Promise.all(
+          recentProjects.map((project) =>
+            taskService.getTasksByProject(project.id, { assignedTo: user.id, limit: 5 })
+              .then((resp) => (resp.data?.tasks || []).map((task) => ({
+                ...task,
+                projectName: project.name
+              })))
+          )
+        );
+
+        const flattenedTasks = taskBuckets.flat();
+        flattenedTasks.sort((a, b) => {
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          return dateA - dateB;
+        });
+        setMyTasks(flattenedTasks.slice(0, 5));
       }
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -63,9 +83,9 @@ const Dashboard = () => {
               <div style={styles.statIcon}>👥</div>
               <div>
                 <p style={styles.statLabel}>Users</p>
-                <p style={styles.statValue}>{tenant.stats?.total_users || 0} / {tenant.max_users}</p>
+                <p style={styles.statValue}>{tenant.stats?.totalUsers || 0} / {tenant.maxUsers}</p>
                 <div style={styles.progressBar}>
-                  <div style={{...styles.progressFill, width: `${((tenant.stats?.total_users || 0) / tenant.max_users) * 100}%`}}></div>
+                  <div style={{...styles.progressFill, width: `${((tenant.stats?.totalUsers || 0) / tenant.maxUsers) * 100}%`}}></div>
                 </div>
               </div>
             </div>
@@ -74,9 +94,9 @@ const Dashboard = () => {
               <div style={styles.statIcon}>📁</div>
               <div>
                 <p style={styles.statLabel}>Projects</p>
-                <p style={styles.statValue}>{tenant.stats?.total_projects || 0} / {tenant.max_projects}</p>
+                <p style={styles.statValue}>{tenant.stats?.totalProjects || 0} / {tenant.maxProjects}</p>
                 <div style={styles.progressBar}>
-                  <div style={{...styles.progressFill, width: `${((tenant.stats?.total_projects || 0) / tenant.max_projects) * 100}%`}}></div>
+                  <div style={{...styles.progressFill, width: `${((tenant.stats?.totalProjects || 0) / tenant.maxProjects) * 100}%`}}></div>
                 </div>
               </div>
             </div>
@@ -85,7 +105,7 @@ const Dashboard = () => {
               <div style={styles.statIcon}>✅</div>
               <div>
                 <p style={styles.statLabel}>Tasks</p>
-                <p style={styles.statValue}>{tenant.stats?.total_tasks || 0}</p>
+                <p style={styles.statValue}>{tenant.stats?.totalTasks || 0}</p>
                 <p style={styles.statHint}>Total tasks created</p>
               </div>
             </div>
@@ -94,7 +114,7 @@ const Dashboard = () => {
               <div style={styles.statIcon}>📊</div>
               <div>
                 <p style={styles.statLabel}>Plan</p>
-                <p style={styles.statValue}>{tenant.subscription_plan?.toUpperCase()}</p>
+                <p style={styles.statValue}>{tenant.subscriptionPlan?.toUpperCase()}</p>
                 <p style={styles.statHint}>{tenant.name}</p>
               </div>
             </div>
@@ -128,13 +148,36 @@ const Dashboard = () => {
                   <div style={styles.projectFooter}>
                     <div style={styles.projectStat}>
                       <span style={styles.projectStatIcon}>📝</span>
-                      <span>{project.task_count || 0} tasks</span>
+                      <span>{project.taskCount || 0} tasks</span>
                     </div>
                     <div style={styles.projectStat}>
                       <span style={styles.projectStatIcon}>✓</span>
-                      <span>{project.completed_task_count || 0} done</span>
+                      <span>{project.completedTaskCount || 0} done</span>
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {myTasks.length > 0 && (
+          <div style={styles.recentSection} className="slide-in">
+            <h2 style={styles.sectionTitle}>My Tasks</h2>
+            <div style={styles.taskList}>
+              {myTasks.map((task) => (
+                <div key={task.id} style={styles.taskItem}>
+                  <div style={styles.taskMain}>
+                    <div style={styles.taskTitle}>{task.title}</div>
+                    <div style={styles.taskMeta}>
+                      <span style={styles.taskProject}>{task.projectName}</span>
+                      <span style={styles.taskPriority}>{task.priority}</span>
+                      {task.dueDate && (
+                        <span style={styles.taskDue}>{new Date(task.dueDate).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span style={styles.taskStatus}>{task.status.replace('_', ' ')}</span>
                 </div>
               ))}
             </div>
@@ -315,7 +358,7 @@ const styles = {
     borderRadius: '9999px',
     fontSize: '0.75rem',
     transition: 'all 0.3s ease',
-    cursor: 'pointer'
+    cursor: 'pointer',
     textTransform: 'capitalize'
   },
   projectDesc: {
@@ -351,6 +394,52 @@ const styles = {
   emptyIcon: {
     fontSize: '4rem',
     marginBottom: '1rem'
+  },
+  taskList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem'
+  },
+  taskItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    borderRadius: '12px',
+    padding: '1rem 1.25rem',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  taskMain: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem'
+  },
+  taskTitle: {
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#1f2937'
+  },
+  taskMeta: {
+    display: 'flex',
+    gap: '0.75rem',
+    fontSize: '0.75rem',
+    color: '#6b7280'
+  },
+  taskProject: {
+    fontWeight: '600'
+  },
+  taskPriority: {
+    textTransform: 'uppercase'
+  },
+  taskDue: {
+    color: '#9ca3af'
+  },
+  taskStatus: {
+    fontSize: '0.75rem',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    color: '#4b5563'
   }
 };
 

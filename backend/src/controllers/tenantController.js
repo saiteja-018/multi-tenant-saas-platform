@@ -1,6 +1,18 @@
 const tenantModel = require('../models/tenantModel');
 const { logAudit } = require('../utils/logger');
 
+const normalizeTenant = (tenant) => ({
+  id: tenant.id,
+  name: tenant.name,
+  subdomain: tenant.subdomain,
+  status: tenant.status,
+  subscriptionPlan: tenant.subscription_plan,
+  maxUsers: tenant.max_users,
+  maxProjects: tenant.max_projects,
+  createdAt: tenant.created_at,
+  updatedAt: tenant.updated_at
+});
+
 // Get all tenants (Super Admin only)
 const getAllTenants = async (req, res, next) => {
   try {
@@ -15,8 +27,14 @@ const getAllTenants = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: result.tenants,
-      pagination: result.pagination
+      data: {
+        tenants: result.tenants.map((tenant) => ({
+          ...normalizeTenant(tenant),
+          totalUsers: parseInt(tenant.total_users || 0),
+          totalProjects: parseInt(tenant.total_projects || 0)
+        })),
+        pagination: result.pagination
+      }
     });
   } catch (error) {
     next(error);
@@ -51,8 +69,12 @@ const getTenantById = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        ...tenant,
-        stats
+        ...normalizeTenant(tenant),
+        stats: {
+          totalUsers: parseInt(stats.total_users || 0),
+          totalProjects: parseInt(stats.total_projects || 0),
+          totalTasks: parseInt(stats.total_tasks || 0)
+        }
       }
     });
   } catch (error) {
@@ -64,7 +86,7 @@ const getTenantById = async (req, res, next) => {
 const updateTenant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
 
     // Super admin can update any tenant, tenant_admins can only update their own
     if (req.user.role !== 'super_admin' && req.user.tenantId !== id) {
@@ -75,11 +97,25 @@ const updateTenant = async (req, res, next) => {
     }
 
     // Only super admin can change subscription plan and max limits
+    const restrictedFields = ['status', 'subscriptionPlan', 'maxUsers', 'maxProjects', 'subscription_plan', 'max_users', 'max_projects'];
     if (req.user.role !== 'super_admin') {
-      delete updates.subscription_plan;
-      delete updates.max_users;
-      delete updates.max_projects;
-      delete updates.status;
+      const hasRestricted = restrictedFields.some((field) => updates[field] !== undefined);
+      if (hasRestricted) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only super admins can update subscription or status fields'
+        });
+      }
+    }
+
+    if (updates.subscriptionPlan !== undefined) {
+      updates.subscription_plan = updates.subscriptionPlan;
+    }
+    if (updates.maxUsers !== undefined) {
+      updates.max_users = updates.maxUsers;
+    }
+    if (updates.maxProjects !== undefined) {
+      updates.max_projects = updates.maxProjects;
     }
 
     const tenant = await tenantModel.updateTenant(id, updates);
@@ -105,7 +141,7 @@ const updateTenant = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Tenant updated successfully',
-      data: tenant
+      data: normalizeTenant(tenant)
     });
   } catch (error) {
     next(error);
@@ -136,8 +172,12 @@ const getCurrentTenant = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        ...tenant,
-        stats
+        ...normalizeTenant(tenant),
+        stats: {
+          totalUsers: parseInt(stats.total_users || 0),
+          totalProjects: parseInt(stats.total_projects || 0),
+          totalTasks: parseInt(stats.total_tasks || 0)
+        }
       }
     });
   } catch (error) {
@@ -192,7 +232,7 @@ const createTenant = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Tenant created successfully',
-      data: tenant
+      data: normalizeTenant(tenant)
     });
   } catch (error) {
     next(error);

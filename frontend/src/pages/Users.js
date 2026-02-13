@@ -25,7 +25,7 @@ const Users = () => {
   const loadUsers = async () => {
     try {
       const data = await userService.getUsers();
-      setUsers(data.data);
+      setUsers(data.data?.users || []);
     } catch (error) {
       alert('Error loading users');
     } finally {
@@ -114,16 +114,16 @@ const Users = () => {
             return (
               <div key={u.id} style={styles.userCard}>
                 <div style={styles.userAvatar}>
-                  {u.full_name?.charAt(0)?.toUpperCase()}
+                  {u.fullName?.charAt(0)?.toUpperCase()}
                 </div>
                 <div style={styles.userInfo}>
-                  <h3 style={styles.userName}>{u.full_name}</h3>
+                  <h3 style={styles.userName}>{u.fullName}</h3>
                   <p style={styles.email}>{u.email}</p>
                   <div style={styles.badges}>
                     <span style={{...styles.roleBadge, backgroundColor: roleColor.bg, color: roleColor.text}}>
                       {u.role.replace('_', ' ')}
                     </span>
-                    {u.is_active ? (
+                    {u.isActive ? (
                       <span style={styles.activeBadge}>● Active</span>
                     ) : (
                       <span style={styles.inactiveBadge}>● Inactive</span>

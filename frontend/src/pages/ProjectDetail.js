@@ -32,8 +32,8 @@ const ProjectDetail = () => {
       ]);
       
       setProject(projectData.data);
-      setTasks(tasksData.data);
-      setUsers(usersData.data);
+      setTasks(tasksData.data?.tasks || []);
+      setUsers(usersData.data?.users || []);
     } catch (error) {
       alert('Error loading data');
     } finally {
@@ -120,16 +120,16 @@ const ProjectDetail = () => {
                         <span style={{...styles.priorityBadge, ...getPriorityStyle(task.priority)}}>
                           {task.priority}
                         </span>
-                        {task.assigned_to_name && (
+                        {task.assignedTo?.fullName && (
                           <span style={styles.assigneeBadge}>
-                            <span style={styles.assigneeAvatar}>{task.assigned_to_name.charAt(0).toUpperCase()}</span>
-                            {task.assigned_to_name}
+                            <span style={styles.assigneeAvatar}>{task.assignedTo.fullName.charAt(0).toUpperCase()}</span>
+                            {task.assignedTo.fullName}
                           </span>
                         )}
                       </div>
 
-                      {task.due_date && (
-                        <p style={styles.dueDate}>📅 {new Date(task.due_date).toLocaleDateString()}</p>
+                      {task.dueDate && (
+                        <p style={styles.dueDate}>📅 {new Date(task.dueDate).toLocaleDateString()}</p>
                       )}
 
                       <div style={styles.taskActions}>
@@ -227,7 +227,7 @@ const ProjectDetail = () => {
                     >
                       <option value="">Unassigned</option>
                       {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.full_name}</option>
+                        <option key={u.id} value={u.id}>{u.fullName}</option>
                       ))}
                     </select>
                   </div>

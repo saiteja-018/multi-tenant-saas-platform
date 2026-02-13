@@ -19,12 +19,13 @@ export const AuthProvider = ({ children }) => {
 
           const profile = await authService.getProfile();
           if (profile?.success) {
+            const tenantId = profile.data?.tenant?.id || null;
             const refreshedUser = {
               id: profile.data.id,
               email: profile.data.email,
               fullName: profile.data.fullName,
               role: profile.data.role,
-              tenantId: profile.data.tenantId
+              tenantId
             };
             localStorage.setItem('user', JSON.stringify(refreshedUser));
             setUser(refreshedUser);

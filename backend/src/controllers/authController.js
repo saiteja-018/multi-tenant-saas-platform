@@ -5,6 +5,11 @@ const { generateToken } = require('../utils/jwt');
 const { logAudit } = require('../utils/logger');
 const { transaction } = require('../config/database');
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const MIN_PASSWORD_LENGTH = 8;
+const TOKEN_EXPIRES_SECONDS = 86400;
+
 // Register tenant (creates both tenant and admin user)
 const register = async (req, res, next) => {
   try {
@@ -18,8 +23,30 @@ const register = async (req, res, next) => {
       });
     }
 
+    if (!EMAIL_REGEX.test(adminEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    if (adminPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters'
+      });
+    }
+
+    const normalizedSubdomain = subdomain.toLowerCase().trim();
+    if (!SUBDOMAIN_REGEX.test(normalizedSubdomain)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subdomain format'
+      });
+    }
+
     // Check if subdomain already exists
-    const existingTenant = await tenantModel.findTenantBySubdomain(subdomain);
+    const existingTenant = await tenantModel.findTenantBySubdomain(normalizedSubdomain);
     if (existingTenant) {
       return res.status(409).json({
         success: false,
@@ -30,7 +57,7 @@ const register = async (req, res, next) => {
     const { tenant, admin } = await transaction(async (client) => {
       const createdTenant = await tenantModel.createTenant({
         name: tenantName,
-        subdomain: subdomain.toLowerCase(),
+        subdomain: normalizedSubdomain,
         subscriptionPlan: 'free',
         status: 'active'
       }, client);
@@ -63,12 +90,9 @@ const register = async (req, res, next) => {
       success: true,
       message: 'Tenant registered successfully',
       data: {
-        tenant: {
-          id: tenant.id,
-          name: tenant.name,
-          subdomain: tenant.subdomain
-        },
-        admin: {
+        tenantId: tenant.id,
+        subdomain: tenant.subdomain,
+        adminUser: {
           id: admin.id,
           email: admin.email,
           fullName: admin.full_name,
@@ -91,6 +115,13 @@ const login = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'Email and password are required'
+      });
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
       });
     }
 
@@ -164,9 +195,9 @@ const login = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Login successful',
       data: {
         token,
+        expiresIn: TOKEN_EXPIRES_SECONDS,
         user: {
           id: user.id,
           email: user.email,
@@ -201,13 +232,14 @@ const getProfile = async (req, res, next) => {
         fullName: user.full_name,
         role: user.role,
         isActive: user.is_active,
-        tenantId: user.tenant_id,
-        tenantName: user.tenant_name,
-        subdomain: user.subdomain,
-        subscriptionPlan: user.subscription_plan,
-        maxUsers: user.max_users,
-        maxProjects: user.max_projects,
-        createdAt: user.created_at
+        tenant: user.tenant_id ? {
+          id: user.tenant_id,
+          name: user.tenant_name,
+          subdomain: user.subdomain,
+          subscriptionPlan: user.subscription_plan,
+          maxUsers: user.max_users,
+          maxProjects: user.max_projects
+        } : null
       }
     });
   } catch (error) {

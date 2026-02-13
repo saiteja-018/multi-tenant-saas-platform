@@ -18,7 +18,7 @@ const Tenants = () => {
   const loadTenants = async () => {
     try {
       const response = await tenantService.getAllTenants();
-      setTenants(response.data);
+      setTenants(response.data?.tenants || []);
     } catch (error) {
       alert('Error loading tenants');
     } finally {
@@ -150,11 +150,11 @@ const Tenants = () => {
               <div style={styles.stats}>
                 <div style={styles.statItem}>
                   <span style={styles.statLabel}>Created</span>
-                  <span style={styles.statValue}>{new Date(tenant.created_at).toLocaleDateString()}</span>
+                    <span style={styles.statValue}>{new Date(tenant.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div style={styles.statItem}>
                   <span style={styles.statLabel}>Status</span>
-                  <span style={{...styles.statValue, ...styles.activeStatus}}>● Active</span>
+                    <span style={{...styles.statValue, ...styles.activeStatus}}>● {tenant.status}</span>
                 </div>
               </div>
 

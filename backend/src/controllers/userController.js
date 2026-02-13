@@ -3,6 +3,20 @@ const tenantModel = require('../models/tenantModel');
 const { hashPassword } = require('../utils/bcrypt');
 const { logAudit } = require('../utils/logger');
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+const normalizeUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  fullName: user.full_name || user.fullName,
+  role: user.role,
+  isActive: user.is_active ?? user.isActive,
+  tenantId: user.tenant_id || user.tenantId,
+  createdAt: user.created_at || user.createdAt,
+  updatedAt: user.updated_at || user.updatedAt
+});
+
 // Create user
 const createUser = async (req, res, next) => {
   try {
@@ -13,6 +27,28 @@ const createUser = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'Email, password, and full name are required'
+      });
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters'
+      });
+    }
+
+    const allowedRoles = ['user', 'tenant_admin'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role value'
       });
     }
 
@@ -86,7 +122,7 @@ const createUser = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      data: user
+      data: normalizeUser(user)
     });
   } catch (error) {
     next(error);
@@ -122,9 +158,11 @@ const getUsers = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: result.users,
-      total: result.total,
-      pagination: result.pagination
+      data: {
+        users: result.users.map(normalizeUser),
+        total: result.total,
+        pagination: result.pagination
+      }
     });
   } catch (error) {
     next(error);
@@ -162,16 +200,7 @@ const getUserById = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        role: user.role,
-        isActive: user.is_active,
-        tenantId: user.tenant_id,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
-      }
+      data: normalizeUser(user)
     });
   } catch (error) {
     next(error);
@@ -216,6 +245,13 @@ const updateUser = async (req, res, next) => {
       updates.is_active = updates.isActive;
     }
 
+    if (updates.role !== undefined && !['user', 'tenant_admin'].includes(updates.role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role value'
+      });
+    }
+
     // Regular users can only update their own full name
     if (req.user.role === 'user') {
       updates = { full_name: updates.full_name };
@@ -238,7 +274,7 @@ const updateUser = async (req, res, next) => {
     res.json({
       success: true,
       message: 'User updated successfully',
-      data: updatedUser
+      data: normalizeUser(updatedUser)
     });
   } catch (error) {
     next(error);

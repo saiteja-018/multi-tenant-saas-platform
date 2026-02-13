@@ -2,15 +2,34 @@ const projectModel = require('../models/projectModel');
 const tenantModel = require('../models/tenantModel');
 const { logAudit } = require('../utils/logger');
 
+const normalizeProject = (project) => ({
+  id: project.id,
+  tenantId: project.tenant_id,
+  name: project.name,
+  description: project.description,
+  status: project.status,
+  createdBy: project.created_by,
+  createdAt: project.created_at,
+  updatedAt: project.updated_at
+});
+
 // Create project
 const createProject = async (req, res, next) => {
   try {
     const { name, description, status = 'active' } = req.body;
+    const validStatuses = ['active', 'archived', 'completed'];
 
     if (!name) {
       return res.status(400).json({
         success: false,
         message: 'Project name is required'
+      });
+    }
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project status'
       });
     }
 
@@ -56,7 +75,7 @@ const createProject = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Project created successfully',
-      data: project
+      data: normalizeProject(project)
     });
   } catch (error) {
     next(error);
@@ -78,9 +97,23 @@ const getProjects = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: result.projects,
-      total: result.total,
-      pagination: result.pagination
+      data: {
+        projects: result.projects.map((project) => ({
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          status: project.status,
+          createdBy: project.created_by ? {
+            id: project.created_by,
+            fullName: project.creator_name
+          } : null,
+          taskCount: parseInt(project.task_count || 0),
+          completedTaskCount: parseInt(project.completed_task_count || 0),
+          createdAt: project.created_at
+        })),
+        total: result.total,
+        pagination: result.pagination
+      }
     });
   } catch (error) {
     next(error);
@@ -111,7 +144,7 @@ const getProjectById = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: project
+      data: normalizeProject(project)
     });
   } catch (error) {
     next(error);
@@ -123,6 +156,7 @@ const updateProject = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    const validStatuses = ['active', 'archived', 'completed'];
 
     // Get project
     const project = await projectModel.findProjectById(id);
@@ -149,6 +183,13 @@ const updateProject = async (req, res, next) => {
       });
     }
 
+    if (updates.status !== undefined && !validStatuses.includes(updates.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project status'
+      });
+    }
+
     // Update project
     const updatedProject = await projectModel.updateProject(id, updates);
 
@@ -166,7 +207,7 @@ const updateProject = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Project updated successfully',
-      data: updatedProject
+      data: normalizeProject(updatedProject)
     });
   } catch (error) {
     next(error);

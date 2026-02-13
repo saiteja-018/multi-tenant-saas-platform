@@ -3,16 +3,50 @@ const projectModel = require('../models/projectModel');
 const userModel = require('../models/userModel');
 const { logAudit } = require('../utils/logger');
 
+const normalizeTask = (task) => ({
+  id: task.id,
+  projectId: task.project_id,
+  tenantId: task.tenant_id,
+  title: task.title,
+  description: task.description,
+  status: task.status,
+  priority: task.priority,
+  assignedTo: task.assigned_to ? {
+    id: task.assigned_to,
+    fullName: task.assigned_to_name,
+    email: task.assigned_to_email
+  } : null,
+  dueDate: task.due_date,
+  createdAt: task.created_at,
+  updatedAt: task.updated_at
+});
+
 // Create task
 const createTask = async (req, res, next) => {
   try {
     const projectId = req.params.projectId || req.body.projectId;
     const { title, description, status = 'todo', priority = 'medium', assignedTo, dueDate } = req.body;
+    const validStatuses = ['todo', 'in_progress', 'completed'];
+    const validPriorities = ['low', 'medium', 'high'];
 
     if (!projectId || !title) {
       return res.status(400).json({
         success: false,
         message: 'Project ID and title are required'
+      });
+    }
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value'
+      });
+    }
+
+    if (!validPriorities.includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid priority value'
       });
     }
 
@@ -69,7 +103,7 @@ const createTask = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Task created successfully',
-      data: task
+      data: normalizeTask(task)
     });
   } catch (error) {
     next(error);
@@ -109,9 +143,11 @@ const getTasksByProject = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: result.tasks,
-      total: result.total,
-      pagination: result.pagination
+      data: {
+        tasks: result.tasks.map(normalizeTask),
+        total: result.total,
+        pagination: result.pagination
+      }
     });
   } catch (error) {
     next(error);
@@ -142,7 +178,7 @@ const getTaskById = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: task
+      data: normalizeTask(task)
     });
   } catch (error) {
     next(error);
@@ -154,6 +190,8 @@ const updateTask = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
+    const validStatuses = ['todo', 'in_progress', 'completed'];
+    const validPriorities = ['low', 'medium', 'high'];
 
     // Get task
     const task = await taskModel.findTaskById(id);
@@ -177,6 +215,20 @@ const updateTask = async (req, res, next) => {
     }
     if (updates.dueDate !== undefined) {
       updates.due_date = updates.dueDate;
+    }
+
+    if (updates.status !== undefined && !validStatuses.includes(updates.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value'
+      });
+    }
+
+    if (updates.priority !== undefined && !validPriorities.includes(updates.priority)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid priority value'
+      });
     }
 
     // If changing assignment, verify user exists in tenant
@@ -207,7 +259,7 @@ const updateTask = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Task updated successfully',
-      data: updatedTask
+      data: normalizeTask(updatedTask)
     });
   } catch (error) {
     next(error);
@@ -269,8 +321,11 @@ const updateTaskStatus = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Task status updated successfully',
-      data: updatedTask
+      data: {
+        id: updatedTask.id,
+        status: updatedTask.status,
+        updatedAt: updatedTask.updated_at
+      }
     });
   } catch (error) {
     next(error);

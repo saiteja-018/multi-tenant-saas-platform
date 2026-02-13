@@ -20,7 +20,7 @@ const Projects = () => {
   const loadProjects = async () => {
     try {
       const data = await projectService.getProjects();
-      setProjects(data.data);
+      setProjects(data.data?.projects || []);
     } catch (error) {
       alert('Error loading projects');
     } finally {
@@ -100,18 +100,18 @@ const Projects = () => {
               <div key={project.id} style={styles.projectCard}>
                 <div style={styles.projectHeader}>
                   <h3 style={styles.projectName}>{project.name}</h3>
-                  <span style={styles.statusBadge}>Active</span>
+                  <span style={styles.statusBadge}>{project.status}</span>
                 </div>
                 <p style={styles.description}>{project.description}</p>
                 
                 <div style={styles.stats}>
                   <div style={styles.stat}>
                     <span style={styles.statIcon}>📝</span>
-                    <span>{project.task_count || 0} tasks</span>
+                    <span>{project.taskCount || 0} tasks</span>
                   </div>
                   <div style={styles.stat}>
                     <span style={styles.statIcon}>✓</span>
-                    <span>{project.completed_task_count || 0} done</span>
+                    <span>{project.completedTaskCount || 0} done</span>
                   </div>
                 </div>
 
