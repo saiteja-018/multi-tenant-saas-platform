@@ -1,4 +1,9 @@
 {
+  "deployment": {
+    "frontendUrl": "https://multi-tenant-saas-platform-1-39mg.onrender.com",
+    "backendUrl": "https://multi-tenant-saas-platform-py6e.onrender.com",
+    "healthCheckUrl": "https://multi-tenant-saas-platform-py6e.onrender.com/api/health"
+  },
   "testCredentials": {
     "superAdmin": {
       "email": "superadmin@system.com",
