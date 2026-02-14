@@ -6,6 +6,12 @@ A production-ready, multi-tenant SaaS application for project and task managemen
 
 Watch the walkthrough: [Demo Video](https://drive.google.com/file/d/1b1ZM6l_P1tLVlmN1ZI7_c6x4DNnk2_fy/view?usp=sharing)
 
+## 🌐 Deployed URLs
+
+- Frontend: https://multi-tenant-saas-platform-1-39mg.onrender.com
+- Backend API: https://multi-tenant-saas-platform-py6e.onrender.com
+- Health Check: https://multi-tenant-saas-platform-py6e.onrender.com/api/health
+
 ## 🚀 Features
 
 - **Multi-Tenancy**: Complete data isolation between organizations using shared database with tenant_id filtering
